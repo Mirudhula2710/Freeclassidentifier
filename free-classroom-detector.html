@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ClassFinder — Free Room Detector</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c28;
+    --border: #2a2a3d;
+    --accent: #00e5b0;
+    --accent2: #7b5ea7;
+    --danger: #ff4d6d;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --card: #16161f;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,176,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,176,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #root { position: relative; z-index: 1; }
+
+  /* --- LOGIN --- */
+  .login-wrap {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .login-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px 40px;
+    width: 100%;
+    max-width: 420px;
+    animation: slideUp 0.5s cubic-bezier(.16,1,.3,1) both;
+  }
+
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .login-logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    color: var(--accent);
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+  }
+
+  .login-sub {
+    color: var(--muted);
+    font-size: 14px;
+    margin-bottom: 36px;
+  }
+
+  .tab-row {
+    display: flex;
+    background: var(--surface2);
+    border-radius: 8px;
+    padding: 4px;
+    margin-bottom: 28px;
+    gap: 4px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    padding: 9px;
+    border: none;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+    color: var(--muted);
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    color: #000;
+  }
+
+  label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  input[type=text], input[type=email], input[type=password] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+    margin-bottom: 20px;
+  }
+  input:focus { border-color: var(--accent); }
+
+  .btn-primary {
+    width: 100%;
+    padding: 13px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:active { transform: scale(0.98); }
+
+  .error-msg {
+    background: rgba(255,77,109,0.12);
+    border: 1px solid rgba(255,77,109,0.3);
+    color: var(--danger);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    margin-bottom: 18px;
+  }
+
+  .hint-box {
+    margin-top: 24px;
+    padding: 14px;
+    background: var(--surface2);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+  .hint-box strong { color: var(--accent); font-family: 'Space Mono', monospace; }
+
+  /* --- LAYOUT --- */
+  .app-wrap { min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* TOPBAR */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    height: 60px;
+    background: rgba(10,10,15,0.9);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .topbar-logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+  }
+
+  .topbar-right { display: flex; align-items: center; gap: 16px; }
+
+  .role-badge {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  .role-badge.admin { background: rgba(123,94,167,0.2); color: var(--accent2); border: 1px solid var(--accent2); }
+  .role-badge.student { background: rgba(0,229,176,0.1); color: var(--accent); border: 1px solid var(--accent); }
+
+  .logout-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .logout-btn:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* --- STUDENT DASHBOARD --- */
+  .dashboard { padding: 40px 32px; max-width: 1000px; margin: 0 auto; width: 100%; }
+
+  .time-hero {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .time-display {
+    font-family: 'Space Mono', monospace;
+    font-size: 52px;
+    color: var(--text);
+    letter-spacing: -2px;
+    line-height: 1;
+  }
+  .time-display span { color: var(--accent); }
+
+  .date-display {
+    font-size: 15px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .refresh-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .refresh-btn svg { transition: transform 0.4s; }
+  .refresh-btn:hover svg { transform: rotate(180deg); }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+    align-items: center;
+  }
+
+  .filter-label {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-right: 4px;
+  }
+
+  .filter-chip {
+    padding: 7px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-chip.active, .filter-chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0,229,176,0.07);
+  }
+
+  /* Stats row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+  }
+
+  .stat-number {
+    font-family: 'Space Mono', monospace;
+    font-size: 36px;
+    color: var(--accent);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .stat-label { font-size: 13px; color: var(--muted); }
+
+  /* Room cards */
+  .rooms-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+
+  .room-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    transition: all 0.2s;
+    animation: fadeIn 0.3s ease both;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .room-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 3px;
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px 0 0 3px;
+  }
+
+  .room-card:hover {
+    border-color: rgba(0,229,176,0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(0,229,176,0.06);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .room-number {
+    font-family: 'Space Mono', monospace;
+    font-size: 22px;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .room-building {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .free-duration {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,229,176,0.1);
+    color: var(--accent);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .free-dot {
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 1.5s ease infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 80px 24px;
+    color: var(--muted);
+  }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-state h3 { font-size: 20px; color: var(--text); margin-bottom: 8px; }
+
+  /* --- ADMIN DASHBOARD --- */
+  .admin-wrap { padding: 40px 32px; max-width: 900px; margin: 0 auto; width: 100%; }
+
+  .admin-header { margin-bottom: 40px; }
+  .admin-header h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 28px;
+    color: var(--text);
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+  }
+  .admin-header p { color: var(--muted); font-size: 15px; }
+
+  .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+  .admin-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+  }
+
+  .admin-card.full { grid-column: 1 / -1; }
+
+  .admin-card h2 {
+    font-family: 'Space Mono', monospace;
+    font-size: 16px;
+    color: var(--text);
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+
+  .admin-card .card-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(0,229,176,0.03);
+  }
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+    margin: 0;
+  }
+  .upload-icon { font-size: 36px; margin-bottom: 12px; }
+  .upload-zone p { font-size: 14px; color: var(--muted); }
+  .upload-zone strong { color: var(--accent); }
+
+  /* Progress bar */
+  .progress-wrap {
+    margin-top: 20px;
+    background: var(--surface2);
+    border-radius: 4px;
+    height: 4px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+
+  /* Schedule table */
+  .schedule-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  .schedule-table th {
+    text-align: left;
+    padding: 10px 12px;
+    background: var(--surface2);
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+  .schedule-table th:first-child { border-radius: 6px 0 0 6px; }
+  .schedule-table th:last-child { border-radius: 0 6px 6px 0; }
+  .schedule-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  .schedule-table tr:last-child td { border-bottom: none; }
+  .schedule-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .day-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    background: rgba(123,94,167,0.2);
+    color: var(--accent2);
+  }
+
+  .success-banner {
+    background: rgba(0,229,176,0.1);
+    border: 1px solid rgba(0,229,176,0.2);
+    border-radius: 10px;
+    padding: 14px 18px;
+    color: var(--accent);
+    font-size: 14px;
+    margin-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .current-semester {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 16px;
+    font-size: 14px;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .current-semester strong { color: var(--text); display: block; margin-bottom: 4px; font-size: 15px; }
+
+  /* Scrollable table */
+  .table-scroll { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  .no-timetable { color: var(--muted); font-size: 14px; text-align: center; padding: 32px; }
+
+  @media (max-width: 640px) {
+    .topbar { padding: 0 16px; }
+    .dashboard, .admin-wrap { padding: 24px 16px; }
+    .time-display { font-size: 36px; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .admin-grid { grid-template-columns: 1fr; }
+    .admin-card.full { grid-column: 1; }
+    .rooms-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+
+const { useState, useEffect, useCallback } = React;
+
+// ── SEED DATA ──────────────────────────────────────────────────────────────
+const SEED_SCHEDULE = [
+  { id:1, room:'101', building:'Block A', day:'Monday',    start:'08:00', end:'10:00' },
+  { id:2, room:'101', building:'Block A', day:'Monday',    start:'11:00', end:'13:00' },
+  { id:3, room:'202', building:'Block A', day:'Monday',    start:'09:00', end:'11:00' },
+  { id:4, room:'305', building:'Block B', day:'Monday',    start:'08:00', end:'09:30' },
+  { id:5, room:'305', building:'Block B', day:'Monday',    start:'14:00', end:'16:00' },
+  { id:6, room:'110', building:'Block C', day:'Monday',    start:'10:00', end:'12:00' },
+  { id:7, room:'204', building:'Block B', day:'Tuesday',   start:'09:00', end:'11:00' },
+  { id:8, room:'101', building:'Block A', day:'Tuesday',   start:'08:00', end:'10:00' },
+  { id:9, room:'402', building:'Block D', day:'Tuesday',   start:'13:00', end:'15:00' },
+  { id:10,room:'305', building:'Block B', day:'Wednesday', start:'08:00', end:'17:00' },
+  { id:11,room:'110', building:'Block C', day:'Wednesday', start:'09:00', end:'11:00' },
+  { id:12,room:'202', building:'Block A', day:'Thursday',  start:'10:00', end:'12:00' },
+  { id:13,room:'402', building:'Block D', day:'Thursday',  start:'08:00', end:'10:00' },
+  { id:14,room:'101', building:'Block A', day:'Friday',    start:'08:00', end:'09:00' },
+  { id:15,room:'204', building:'Block B', day:'Friday',    start:'11:00', end:'13:00' },
+];
+
+const ALL_ROOMS = [
+  { room:'101', building:'Block A' },
+  { room:'202', building:'Block A' },
+  { room:'305', building:'Block B' },
+  { room:'204', building:'Block B' },
+  { room:'110', building:'Block C' },
+  { room:'402', building:'Block D' },
+  { room:'501', building:'Block D' },
+  { room:'203', building:'Block C' },
+];
+
+const USERS = [
+  { email:'admin@uni.edu',    password:'admin123',  role:'admin',   name:'Admin' },
+  { email:'student@uni.edu',  password:'student123',role:'student', name:'Alex Kumar' },
+  { email:'jane@uni.edu',     password:'student123',role:'student', name:'Jane Priya' },
+];
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+function toMinutes(t) {
+  const [h,m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function fmt(mins) {
+  const h = Math.floor(mins/60), m = mins%60;
+  if (h === 0) return `${m} min`;
+  if (m === 0) return `${h} hr`;
+  return `${h} hr ${m} min`;
+}
+
+function getDayName(d) {
+  return ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d];
+}
+
+function computeFreeRooms(schedule, allRooms, now) {
+  const dayName = getDayName(now.getDay());
+  const cur = now.getHours()*60 + now.getMinutes();
+
+  return allRooms.map(room => {
+    const todayClasses = schedule.filter(
+      s => s.room === room.room && s.building === room.building && s.day === dayName
+    );
+    const isBusy = todayClasses.some(c => cur >= toMinutes(c.start) && cur < toMinutes(c.end));
+    if (isBusy) return null;
+
+    // Find next class to calc how long it's free
+    const upcoming = todayClasses
+      .filter(c => toMinutes(c.start) > cur)
+      .sort((a,b) => toMinutes(a.start) - toMinutes(b.start));
+
+    const freeUntil = upcoming.length > 0 ? toMinutes(upcoming[0].start) : 18*60;
+    const freeFor = Math.max(0, freeUntil - cur);
+    return { ...room, freeFor };
+  }).filter(Boolean);
+}
+
+// ── CLOCK ──────────────────────────────────────────────────────────────────
+function useClock() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
+// ── COMPONENTS ─────────────────────────────────────────────────────────────
+
+function LoginPage({ onLogin }) {
+  const [tab, setTab] = useState('student');
+  const [email, setEmail] = useState('');
+  const [pass, setPass] = useState('');
+  const [error, setError] = useState('');
+
+  const fillDemo = () => {
+    if (tab === 'admin') { setEmail('admin@uni.edu'); setPass('admin123'); }
+    else { setEmail('student@uni.edu'); setPass('student123'); }
+  };
+
+  const handleSubmit = () => {
+    const user = USERS.find(u => u.email === email && u.password === pass && u.role === tab);
+    if (!user) { setError('Invalid credentials. Try the demo credentials below.'); return; }
+    setError('');
+    onLogin(user);
+  };
+
+  return (
+    <div className="login-wrap">
+      <div className="login-box">
+        <div className="login-logo">ClassFinder_</div>
+        <div className="login-sub">University Free Room Detection System</div>
+
+        <div className="tab-row">
+          <button className={`tab-btn ${tab==='student'?'active':''}`} onClick={()=>{setTab('student');setError('');}}>Student</button>
+          <button className={`tab-btn ${tab==='admin'?'active':''}`} onClick={()=>{setTab('admin');setError('');}}>Admin</button>
+        </div>
+
+        {error && <div className="error-msg">⚠ {error}</div>}
+
+        <label>Email Address</label>
+        <input type="email" value={email} onChange={e=>setEmail(e.target.value)}
+          placeholder={tab==='admin'?'admin@uni.edu':'student@uni.edu'} />
+
+        <label>Password</label>
+        <input type="password" value={pass} onChange={e=>setPass(e.target.value)}
+          placeholder="••••••••"
+          onKeyDown={e=>e.key==='Enter'&&handleSubmit()} />
+
+        <button className="btn-primary" onClick={handleSubmit}>Sign In →</button>
+
+        <div className="hint-box">
+          <strong>Demo credentials:</strong><br/>
+          {tab==='student' ? <>student@uni.edu / student123</> : <>admin@uni.edu / admin123</>}
+          <br/><span style={{color:'var(--accent)',cursor:'pointer',textDecoration:'underline'}} onClick={fillDemo}>Click to autofill</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Topbar({ user, onLogout }) {
+  return (
+    <div className="topbar">
+      <div className="topbar-logo">ClassFinder_</div>
+      <div className="topbar-right">
+        <span style={{fontSize:14,color:'var(--muted)'}}>{user.name}</span>
+        <span className={`role-badge ${user.role}`}>{user.role}</span>
+        <button className="logout-btn" onClick={onLogout}>Sign out</button>
+      </div>
+    </div>
+  );
+}
+
+function StudentDashboard({ schedule }) {
+  const now = useClock();
+  const [filter, setFilter] = useState('All');
+  const [tick, setTick] = useState(0);
+
+  const buildings = ['All', ...new Set(ALL_ROOMS.map(r=>r.building))].sort();
+  const freeRooms = computeFreeRooms(schedule, ALL_ROOMS, now);
+  const filtered = filter === 'All' ? freeRooms : freeRooms.filter(r=>r.building===filter);
+
+  const timeStr = now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  const dateStr = now.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric'});
+
+  const doRefresh = () => setTick(t=>t+1);
+
+  const busyCount = ALL_ROOMS.length - freeRooms.length;
+
+  return (
+    <div className="dashboard">
+      <div className="time-hero">
+        <div>
+          <div className="time-display">
+            {timeStr.split(':')[0]}:<span>{timeStr.split(':')[1]}</span>
+          </div>
+          <div className="date-display">{dateStr}</div>
+        </div>
+        <button className="refresh-btn" onClick={doRefresh}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M23 4v6h-6M1 20v-6h6"/>
+            <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+          </svg>
+          Refresh
+        </button>
+      </div>
+
+      <div className="stats-row">
+        <div className="stat-card">
+          <div className="stat-number">{freeRooms.length}</div>
+          <div className="stat-label">Rooms Free Now</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number" style={{color:'var(--danger)'}}>{busyCount}</div>
+          <div className="stat-label">Rooms In Use</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-number" style={{color:'var(--accent2)'}}>{ALL_ROOMS.length}</div>
+          <div className="stat-label">Total Rooms</div>
+        </div>
+      </div>
+
+      <div className="filter-bar">
+        <span className="filter-label">Building</span>
+        {buildings.map(b=>(
+          <button key={b} className={`filter-chip ${filter===b?'active':''}`} onClick={()=>setFilter(b)}>{b}</button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">🔒</div>
+          <h3>No free rooms right now</h3>
+          <p>All classrooms in {filter} are currently occupied. Check back soon.</p>
+        </div>
+      ) : (
+        <div className="rooms-grid">
+          {filtered.sort((a,b)=>b.freeFor-a.freeFor).map((room,i)=>(
+            <div className="room-card" key={`${room.room}-${room.building}`} style={{animationDelay:`${i*40}ms`}}>
+              <div className="room-number">Room {room.room}</div>
+              <div className="room-building">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+                </svg>
+                {room.building}
+              </div>
+              <div className="free-duration">
+                <span className="free-dot"/>
+                Free for {fmt(room.freeFor)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Simulated PDF parse results
+function simulatePDFParse() {
+  return [
+    { id:101, room:'101', building:'Block A', day:'Monday',    start:'08:00', end:'10:00' },
+    { id:102, room:'101', building:'Block A', day:'Monday',    start:'11:00', end:'13:00' },
+    { id:103, room:'202', building:'Block A', day:'Monday',    start:'09:00', end:'11:00' },
+    { id:104, room:'305', building:'Block B', day:'Monday',    start:'08:00', end:'09:30' },
+    { id:105, room:'305', building:'Block B', day:'Monday',    start:'14:00', end:'16:00' },
+    { id:106, room:'110', building:'Block C', day:'Wednesday', start:'10:00', end:'12:00' },
+    { id:107, room:'204', building:'Block B', day:'Tuesday',   start:'09:00', end:'11:00' },
+    { id:108, room:'402', building:'Block D', day:'Thursday',  start:'08:00', end:'10:00' },
+    { id:109, room:'501', building:'Block D', day:'Friday',    start:'13:00', end:'15:00' },
+    { id:110, room:'203', building:'Block C', day:'Friday',    start:'08:00', end:'10:00' },
+  ];
+}
+
+function AdminDashboard({ schedule, setSchedule }) {
+  const [dragging, setDragging] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [parsing, setParsing] = useState(false);
+  const [parsed, setParsed] = useState(null);
+  const [fileName, setFileName] = useState(null);
+  const [success, setSuccess] = useState(false);
+
+  const handleFile = (file) => {
+    if (!file || file.type !== 'application/pdf') {
+      alert('Please upload a valid PDF file.');
+      return;
+    }
+    setFileName(file.name);
+    setParsing(true);
+    setSuccess(false);
+    setParsed(null);
+    setProgress(0);
+
+    // Simulate parsing progress
+    let p = 0;
+    const iv = setInterval(() => {
+      p += Math.random() * 18 + 5;
+      if (p >= 100) { p = 100; clearInterval(iv); }
+      setProgress(Math.round(p));
+    }, 200);
+
+    setTimeout(() => {
+      setParsed(simulatePDFParse());
+      setParsing(false);
+    }, 2400);
+  };
+
+  const applySchedule = () => {
+    setSchedule(parsed);
+    setSuccess(true);
+  };
+
+  return (
+    <div className="admin-wrap">
+      <div className="admin-header">
+        <h1>Admin Dashboard</h1>
+        <p>Upload a semester timetable PDF to update classroom availability.</p>
+      </div>
+
+      <div className="admin-grid">
+        {/* Upload Card */}
+        <div className="admin-card">
+          <h2>Upload Timetable PDF</h2>
+          <p className="card-sub">Upload the semester schedule. The system will parse room & time data automatically.</p>
+
+          {schedule && schedule.length > 0 && (
+            <div className="current-semester">
+              <strong>✓ Active Timetable</strong>
+              {schedule.length} class sessions loaded across {[...new Set(schedule.map(s=>s.building))].length} buildings.
+            </div>
+          )}
+
+          <div
+            className={`upload-zone ${dragging?'drag-over':''}`}
+            onDragOver={e=>{e.preventDefault();setDragging(true);}}
+            onDragLeave={()=>setDragging(false)}
+            onDrop={e=>{e.preventDefault();setDragging(false);handleFile(e.dataTransfer.files[0]);}}
+          >
+            <input type="file" accept=".pdf" onChange={e=>handleFile(e.target.files[0])} />
+            <div className="upload-icon">📄</div>
+            <p><strong>Drop PDF here</strong> or click to browse</p>
+            <p style={{fontSize:12,marginTop:6}}>Accepts .pdf — Semester timetable</p>
+          </div>
+
+          {parsing && (
+            <div style={{marginTop:20}}>
+              <div style={{fontSize:13,color:'var(--muted)',marginBottom:8}}>Parsing {fileName}… {progress}%</div>
+              <div className="progress-wrap">
+                <div className="progress-bar" style={{width:`${progress}%`}} />
+              </div>
+            </div>
+          )}
+
+          {success && (
+            <div className="success-banner">
+              ✓ Timetable applied successfully! Students can now see live free rooms.
+            </div>
+          )}
+        </div>
+
+        {/* Stats Card */}
+        <div className="admin-card">
+          <h2>System Status</h2>
+          <p className="card-sub">Current timetable statistics.</p>
+          <div style={{display:'grid',gap:16}}>
+            {[
+              {label:'Total Classes', val: schedule.length, color:'var(--accent)'},
+              {label:'Rooms Tracked', val: ALL_ROOMS.length, color:'var(--accent2)'},
+              {label:'Buildings', val: [...new Set(schedule.map(s=>s.building))].length || 0, color:'var(--text)'},
+              {label:'Days Covered', val: [...new Set(schedule.map(s=>s.day))].length || 0, color:'var(--text)'},
+            ].map(s=>(
+              <div key={s.label} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderBottom:'1px solid var(--border)'}}>
+                <span style={{fontSize:14,color:'var(--muted)'}}>{s.label}</span>
+                <span style={{fontFamily:'Space Mono,monospace',fontSize:20,color:s.color}}>{s.val}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Preview Table */}
+        {parsed && (
+          <div className="admin-card full">
+            <h2>Parsed Schedule Preview</h2>
+            <p className="card-sub">{parsed.length} class sessions extracted from <strong style={{color:'var(--text)'}}>{fileName}</strong>. Review and apply below.</p>
+            <div className="table-scroll" style={{marginBottom:20}}>
+              <table className="schedule-table">
+                <thead>
+                  <tr>
+                    <th>Room</th>
+                    <th>Building</th>
+                    <th>Day</th>
+                    <th>Start</th>
+                    <th>End</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {parsed.map(row=>(
+                    <tr key={row.id}>
+                      <td style={{fontFamily:'Space Mono,monospace',fontWeight:700}}>{row.room}</td>
+                      <td>{row.building}</td>
+                      <td><span className="day-badge">{row.day.slice(0,3).toUpperCase()}</span></td>
+                      <td>{row.start}</td>
+                      <td>{row.end}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <button className="btn-primary" style={{maxWidth:260}} onClick={applySchedule}>
+              ✓ Apply This Timetable
+            </button>
+          </div>
+        )}
+
+        {/* Existing schedule */}
+        {!parsed && schedule.length > 0 && (
+          <div className="admin-card full">
+            <h2>Current Active Schedule</h2>
+            <p className="card-sub">{schedule.length} sessions loaded. Upload a new PDF to replace.</p>
+            <div className="table-scroll">
+              <table className="schedule-table">
+                <thead>
+                  <tr><th>Room</th><th>Building</th><th>Day</th><th>Start</th><th>End</th></tr>
+                </thead>
+                <tbody>
+                  {schedule.map((row,i)=>(
+                    <tr key={i}>
+                      <td style={{fontFamily:'Space Mono,monospace',fontWeight:700}}>{row.room}</td>
+                      <td>{row.building}</td>
+                      <td><span className="day-badge">{row.day.slice(0,3).toUpperCase()}</span></td>
+                      <td>{row.start}</td>
+                      <td>{row.end}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── APP ROOT ───────────────────────────────────────────────────────────────
+function App() {
+  const [user, setUser] = useState(null);
+  const [schedule, setSchedule] = useState(SEED_SCHEDULE);
+
+  if (!user) return <LoginPage onLogin={setUser} />;
+
+  return (
+    <div className="app-wrap">
+      <Topbar user={user} onLogout={()=>setUser(null)} />
+      {user.role === 'admin'
+        ? <AdminDashboard schedule={schedule} setSchedule={setSchedule} />
+        : <StudentDashboard schedule={schedule} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
